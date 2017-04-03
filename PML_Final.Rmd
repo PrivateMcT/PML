@@ -1,0 +1,104 @@
+---
+title: "Human Actitivty Recognition: Predictive Modelling"
+author: "Mike Thompson"
+date: "April 3, 2017"
+output:
+  html_document: default
+---
+
+## Executive Summary 
+The goal of this project is to build a predictive model to identity the manner in which a specfic weight lifting exercise is completed. By training a predictive model based on over 10,000 observations, the model is able to successfully evaluate over 5,000 additional observations with 99.68% accuracy. 
+
+## Data Wrangling: Import and Clean-up
+### Data Sets
+The training data contains the measurements of six participants performing one set of a specific weight lifting exercise in five different fashions: 
+
+- Exactly according to the specification (Class A) 
+- Throwing the elbows to the front (Class B)
+- Lifting the dumbbell only halfway (Class C) 
+- Lowering the dumbbell only halfway (Class D) 
+- Throwing the hips to the front (Class E)
+
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes. 
+
+*Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.*
+
+Read more: http://groupware.les.inf.puc-rio.br/har#wle_paper_section#ixzz4dCdalcsp
+
+### Data Import
+```{r eval=FALSE}
+train.URL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+test.URL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(train.URL, "train_data.csv")
+download.file(test.URL, "test_data.csv")
+train.data <- read.csv("train_data.csv")
+predict.data <- read.csv("test_data.csv")
+```
+
+### Data Clean-up After Exploratory Data Analysis
+In the training data, there are several columns with mostly NAs or missing entries. In order to evaluate different prediction models, these columns are excluded; leaving 53 viable measurement columns for analysis. 
+
+## Partitioning Data into Training and Cross-Validation Sets
+In order to train and test the models with a cross-validation set, the training data is partitioned 70% into a model training set and 30% into a cross-validation set.
+```{r eval=FALSE}
+set.seed(1226)
+train.partition <- createDataPartition(train.data$classe, p=0.70, list=F)
+test.data<-train.data[-train.partition,]
+train.data<-train.data[train.partition,]
+```
+
+## Training Prediction Models and Testing Model Accuracy
+Three different prediction models will be tested: random forest (RF), gradient boosted method (GBM), and linear discriminant analysis (LDA). Additionally, these models will be stacked to determine if predictive accuracy is improved. All models are trained using the training data set and evaluated for accuracy by comparing the model predictions to the actual class in the cross-validation set.
+
+### Random Forest Trees Model
+```{r eval=FALSE}
+train.model.RF<-train(classe ~., data=train.data, method="rf")
+test.RF<-predict(train.model.RF, test.data)
+confusionMatrix(test.RF, test.data$classe)$overall[1]
+```
+The RF model yields 99.68% accuracy on the cross-validation set. 
+
+### Gradient Boosted Method Model
+```{r eval=FALSE}
+train.model.GBM<-train(classe ~., data=train.data, method="gbm", verbose=F)
+test.GBM<-predict(train.model.GBM, test.data)
+confusionMatrix(test.GBM, test.data$classe)$overall[1]
+```
+The GBM model yields 98.81% accuracy on the cross-validation set. 
+
+### Linear Discriminant Analysis Model
+```{r eval=FALSE}
+train.model.GBM<-train(classe ~., data=train.data, method="gbm", verbose=F)
+test.GBM<-predict(train.model.GBM, test.data)
+confusionMatrix(test.GBM, test.data$classe)$overall[1]
+```
+The LDA model yields 70.30% accuracy on the cross-validation set. 
+
+### Stacked Model using Random Forest Trees
+```{r eval=FALSE}
+df.STACK3<-data.frame(test.RF, test.GBM, test.LDA, classe=test.data$classe)
+train.model.STACK3<-train(classe ~., data=df.STACK3, method="rf")
+test.STACK3<-predict(train.model.STACK3, test.data)
+confusionMatrix(test.STACK3, test.data$classe)$overall[1]
+```
+The Stacked model yields 99.68% accuracy on the cross-validation set, same as the original RF model. 
+
+## Model Selection
+Since the random forest model yielded the best accuracy (99.68%), that model is selected to be used for prediction. Although the stacked model does have the same accuracy, it requires creating three models stacked into a fourth, so there's no accuracy gain for all the extra work required.
+
+## Prediction
+The prediction model has 99.68% accuracy, so it has 0.32% (1 - accuracy) expected out of sample error. Given our set of 20 measurements for prediction, it's expected to accurately predict 19.94. In this case, we'd expect the model to predict all the weight lifting exercise classes correctly.
+```{r eval=FALSE}
+pred.RF<-predict(train.model.RF, predict.data)
+```
+```{r echo=FALSE}
+prob.set<-c(1:20)
+pred.set<-c("B","A","B","A","A","E","D","B","A","A","B","C","B","A","E","E","A","B","B","B")
+ans<-as.data.frame(cbind(prob.set, pred.set))
+names(ans)<-c("Prediction Set", "Predicted Class")
+```
+```{r echo=FALSE, results='asis'}
+library(knitr)
+kable(ans, caption="Prediction with Random Forest Model")
+```
+
